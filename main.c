@@ -22,6 +22,15 @@ typedef struct InputBuffer_t {
 	ssize_t input_length;
 } InputBuffer;
 
+typedef enum StatementType_t {
+	STATEMENT_INSERT,
+	STATEMENT_SELECT
+} StatementType;
+
+typedef struct Statement_t {
+	StatementType type;
+} Statement;
+
 // The function to create the new input buffer
 InputBuffer* new_input() {
 	InputBuffer* input_buffer = malloc(sizeof(InputBuffer));
@@ -42,6 +51,20 @@ MetaCommandResult handleMetaCommand(InputBuffer* input_buffer) {
 		exit(EXIT_SUCCESS);
 	} else {
 		return META_COMMAND_UNRECOGNIZED_COMMAND;
+	}
+}
+
+// The function preparing the statement
+PrepareStatementResult prepare_statement(InputBuffer* input_buffer, Statement* statement) {
+	if (strncmp(input_buffer -> buffer, "insert", 6) == 0) {
+		// This statement is an insert statement
+		statement -> type = STATEMENT_INSERT;
+		return PREPARE_SUCCESS;
+	} else if (strncmp(input_buffer -> buffer, "select", 6) == 0) {
+		statement -> type = STATEMENT_SELECT;
+		return PREPARE_SUCCESS;
+	} else {
+		return UNRECOGNIZED_PREPARE_COMMAND;
 	}
 }
 
@@ -70,6 +93,21 @@ int main() {
 					printf("Unrecognied meta command!\n");
 					continue;
 			}
+		}
+		Statement statement;
+		if (prepare_statement(input_buffer, &statement) == PREPARE_SUCCESS) {
+			switch (statement.type) {
+				case STATEMENT_INSERT:
+					printf("Insert!\n");
+					break;
+				case STATEMENT_SELECT:
+					printf("Select!\n");
+					break;
+			}
+		} else {
+			// Unrecognized prepare command
+			printf("Unrecognized prepare command!\n");
+			continue;			
 		}
 	}
 }
