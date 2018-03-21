@@ -2,6 +2,19 @@
 #include <stdlib.h>
 #include <string.h> /*strcmp() needs this library.*/
 
+
+//Enum of the meta command state
+typedef enum MetaCommandResult_t {
+	META_COMMAND_SUCCESS,
+	META_COMMAND_UNRECOGNIZED_COMMAND
+} MetaCommandResult;
+
+//Enum of the prepare command state
+typedef enum PrepareStatementResult_t {
+	PREPARE_SUCCESS,
+	UNRECOGNIZED_PREPARE_COMMAND
+} PrepareStatementResult;
+
 // InputBuffer save the message from the terminal
 typedef struct InputBuffer_t {
 	char* buffer;
@@ -22,6 +35,16 @@ void print_prompt() {
 	printf("db > ");
 }
 
+// The function handling with the meta command
+MetaCommandResult handleMetaCommand(InputBuffer* input_buffer) {
+	if (strcmp(input_buffer -> buffer, ".exit") == 0) {
+		printf("Bye bye!\n");
+		exit(EXIT_SUCCESS);
+	} else {
+		return META_COMMAND_UNRECOGNIZED_COMMAND;
+	}
+}
+
 // read the message from the termianl and save it in the input_buffer
 void read_input(InputBuffer* input_buffer) {
 	ssize_t read_bytes = getline(&(input_buffer -> buffer), &(input_buffer -> buffer_length), stdin);
@@ -39,11 +62,14 @@ int main() {
 		print_prompt();
 		read_input(input_buffer);
 
-		if (strcmp(input_buffer -> buffer, ".exit") == 0) {
-			printf("Bye bye!\n");
-			return 0;
-		} else {
-			printf("Wrong format!\n");
+		if (input_buffer -> buffer[0] == '.') {
+			switch (handleMetaCommand(input_buffer)) {
+				case (META_COMMAND_SUCCESS):
+					continue;
+				case (META_COMMAND_UNRECOGNIZED_COMMAND):
+					printf("Unrecognied meta command!\n");
+					continue;
+			}
 		}
 	}
 }
