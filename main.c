@@ -57,7 +57,7 @@ typedef struct Statement_t {
 	Row row_to_insert;
 } Statement;
 
-typedef struct  Table_t {
+typedef struct Table_t {
     void* pages[100];
     uint32_t num_rows;
 } Table;
@@ -106,6 +106,13 @@ PrepareStatementResult prepare_statement(InputBuffer* input_buffer, Statement* s
 	}
 }
 
+// New a table
+Table* new_table(){
+  Table* table = malloc(sizeof(Table));
+  table -> num_rows = 0;
+  return table;
+}
+
 // Get the address to save the row
 void* row_slot(Table* table, uint32_t row_num) {
     uint32_t page_num = row_num / ROWS_PER_PAGE;
@@ -114,15 +121,32 @@ void* row_slot(Table* table, uint32_t row_num) {
         table -> pages[page_num] = malloc(PAGE_SIZE);
         page = table -> pages[page_num];    
     }
-    uint32_t row_offset = row_num / ROWS_PER_PAGE;
+    uint32_t row_offset = row_num % ROWS_PER_PAGE;
     uint32_t byte_offset = row_offset * ROW_SIZE;
     return page + byte_offset;
 } 
+
 // Serialize
 void serialize(Row* row, void* destination) {
     memcpy(destination + ID_OFFSET, &(row -> id), ID_SIZE); 
     memcpy(destination + USERNAME_OFFSET, row -> username, USERNAME_SIZE);
     memcpy(destination + EMAIL_OFFSET, row -> email, EMAIL_SIZE); 
+}
+
+// Deserialize
+void deserialize(void* destination, Row* row) {
+  memcpy(&(row -> id), destination + ID_OFFSET, ID_SIZE);
+  memcpy(row -> username, destination + USERNAME_OFFSET, USERNAME_SIZE);
+  memcpy(row -> email, destination + EMAIL_OFFSET, EMAIL_SIZE);
+}
+
+// print row
+void print_row(Row* row) {
+  int id = row -> id;
+  char* username = row -> username;
+  char* email = row -> email;
+  printf("(%d, %s, %s)\n", id, username, email); 
+ 
 }
 
 // Execute insert
@@ -139,16 +163,30 @@ ExecuteResult execute_insert(Table* table, Statement* statement) {
 
 }
 
-void execute_statement(Statement* statement) {
+// Execute select
+ExecuteResult execute_select(Table* table, Statement* statement) {
+    Row* row = malloc(sizeof(Row));
+    memset(row, 0, sizeof(Row));
+    for (int i = 0; i < table -> num_rows; i++) {
+      deserialize(row_slot(table, i), row);  
+      print_row(row);
+    }
+ 
+}
+
+void execute_statement(Statement* statement, Table* table) {
     switch (statement -> type) {
         case STATEMENT_INSERT:
             printf("Insert!\n");
+            execute_insert(table, statement);
             break;
 	case STATEMENT_SELECT:
             printf("Select\n");
+            execute_select(table, statement);
 	    break;
     }
 }
+
 // read the message from the termianl and save it in the input_buffer
 void read_input(InputBuffer* input_buffer) {
 	ssize_t read_bytes = getline(&(input_buffer -> buffer), &(input_buffer -> buffer_length), stdin);
@@ -162,6 +200,7 @@ void read_input(InputBuffer* input_buffer) {
 
 int main() {
 	InputBuffer* input_buffer = new_input();
+        Table* table = new_table();
 	for (;;) {
 		print_prompt();
 		read_input(input_buffer);
@@ -177,7 +216,7 @@ int main() {
 		}
 		Statement statement;
 		if (prepare_statement(input_buffer, &statement) == PREPARE_SUCCESS) {
-			execute_statement(&statement);
+			execute_statement(&statement, table);
 		} else {
 			// Unrecognized prepare command
 			printf("Unrecognized prepare command!\n");
